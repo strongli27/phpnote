@@ -1,5 +1,7 @@
 # PHP筆記
 
+标签（空格分隔）：jobnote
+
 ---
 
 ### PHP 是一门弱类型语言
@@ -321,6 +323,30 @@ print_r($result);
 输出: 
 > Array ( [red] => a [green] => b [blue] => c [yellow] => d )
 
+### array_diff_assoc
+`array_diff_assoc ( array $array1 , array $array2 [, array $... ] ) : array`
+带索引检查计算数组的差集。
+`array1`
+从这个数组进行比较
+`array2`
+被比较的数组
+`...`
+更多被比较的数组
+```
+<?php
+$array1 = array("a" => "green", "b" => "brown", "c" => "blue", "red");
+$array2 = array("a" => "green", "yellow", "red");
+$result = array_diff_assoc($array1, $array2);
+print_r($result);
+?>
+```
+>  输出：
+Array
+(
+    [b] => brown
+    [c] => blue
+    [0] => red
+)
 
 ### string 相关函数：
 `ucfirst()` - 函数把字符串中的首字符转换为大写。
@@ -364,7 +390,71 @@ print_r($result);
 注释：如果两个或更多个数组元素有相同的键名，则最后的元素会覆盖其他元素。
 注释：如果您仅仅向 array_merge()函数输入一个数组，且键名是整数，则该函数将返回带有整数键名的新数组，其键名以 0 开始进行重新索引（参见下面的实例 1）
 
+### unset()
+`unset ( mixed $var [, mixed $... ] ) : void`
+释放给定的变量
 
+- 如果在函数中 unset()一个全局变量，则只是局部变量被销毁，而在调用环境中的变量将保持调用 `unset()` 之前一样的值。
+```
+<?php
+function destroy_foo() {
+    global $foo;
+    unset($foo);
+}
+
+$foo = 'bar';
+destroy_foo();
+echo $foo;   //输出 bar
+?>
+```
+- 如果您想在函数中 unset() 一个全局变量，可使用 `$GLOBALS` 数组来实现：
+```
+<?php
+function foo() 
+{
+    unset($GLOBALS['bar']);
+}
+
+$bar = "something";
+foo();
+?>
+```
+- 如果在函数中 unset()一个通过引用传递的变量，则只是局部变量被销毁，而在调用环境中的变量将保持调用 unset() 之前一样的值。
+```
+<?php
+function foo(&$bar) {
+    unset($bar);
+    $bar = "blah";
+}
+
+$bar = 'something';
+echo "$bar\n";   //输出 something
+
+foo($bar);
+echo "$bar\n";  //输出 bar
+?>
+```
+- 如果在函数中 unset()一个静态变量，那么在函数内部此静态变量将被销毁。但是，当再次调用此函数时，此静态变量将被复原为上次被销毁之前的值。
+```
+<?php
+function foo()
+{
+    static $bar;
+    $bar++;
+    echo "Before unset: $bar, ";
+    unset($bar);
+    $bar = 23;
+    echo "after unset: $bar\n";
+}
+
+foo();   //输出 Before unset: 1, after unset: 23
+foo();   //输出 Before unset: 2, after unset: 23
+foo();   //输出 Before unset: 3, after unset: 23
+?>
+```
+
+
+# 面向对象
 ## 类访问控制
 类属性必须定义为公有，受保护，私有之一。如果用 var 定义，则被视为公有。
 类中的方法可以被定义为公有，私有或受保护。如果没有设置这些关键字，则该方法默认为公有。
@@ -615,6 +705,36 @@ $classname::aStaticMethod(); // 自 PHP 5.3.0 起
 ?>
 ```
 
+### array_slice
+`array_slice ( array $array , int $offset [, int $length = NULL [, bool $preserve_keys = false ]] ) : array`
+从数组中取出一段。返回根据 offset 和 length 参数所指定的 array 数组中的一段序列。
+`offset` 如果 offset 非负，则序列将从 array 中的此偏移量开始。如果 offset 为负，则序列将从 array 中距离末端这么远的地方开始。
+`length` 如果给出了 length 并且为正，则序列中将具有这么多的单元。如果给出了 length 并且为负，则序列将终止在距离数组末端这么远的地方。如果省略，则序列将从 offset 开始一直到 array 的末端。
+`preserve_keys` 注意 array_slice() 默认会重新排序并重置数组的数字索引。你可以通过将 preserve_keys 设为 TRUE 来改变此行为。
+```
+<?php
+$input = array("a", "b", "c", "d", "e");
+
+$output = array_slice($input, 2);      // returns "c", "d", and "e"
+$output = array_slice($input, -2, 1);  // returns "d"
+$output = array_slice($input, 0, 3);   // returns "a", "b", and "c"
+
+// note the differences in the array keys
+print_r(array_slice($input, 2, -1));
+print_r(array_slice($input, 2, -1, true));
+?>
+```
+> 输出:  Array
+        (
+            [0] => c
+            [1] => d
+        )
+        Array
+        (
+            [2] => c
+            [3] => d
+        )
+
 
 ## Final 关键字
 如果父类中的方法被声明为 `final`，则子类无法覆盖该方法。如果一个类被声明为 `final`，则不能被继承。
@@ -698,5 +818,85 @@ echo get_class($sun1->useSelf())."\n";     //  输出  Father
 echo get_class($sun1->useStatic())."\n";  //  输出  Sun
 ```
 
+## 后期静态绑定
+用于在继承范围内引用静态调用的类。
 
+准确说，后期静态绑定工作原理是存储了在上一个“非转发调用”（non-forwarding call）的类名。当进行静态方法调用时，该类名即为明确指定的那个（通常在 :: 运算符左侧部分）；当进行非静态方法调用时，即为该对象所属的类。所谓的“转发调用”（forwarding call）指的是通过以下几种方式进行的静态调用：self::，parent::，static:: 以及 forward_static_call()。可用 get_called_class() 函数来得到被调用的方法所在的类名，static:: 则指出了其范围。
+
+该功能从语言内部角度考虑被命名为“后期静态绑定”。“后期绑定”的意思是说，static:: 不再被解析为定义当前方法所在的类，而是在实际运行时计算的。也可以称之为“静态绑定”，因为它可以用于（但不限于）静态方法的调用。
+
+```
+<?php
+class A {
+    public static function who() {
+        echo __CLASS__;
+    }
+    public static function test() {
+        self::who();
+    }
+}
+
+class B extends A {
+    public static function who() {
+        echo __CLASS__;
+    }
+}
+
+B::test();  // 输出 A
+?>
+```
+
+后期静态绑定本想通过引入一个新的关键字表示**运行时最初调用的类来绕过限制**。简单地说，这个关键字能够让你在上述例子中调用 test() 时引用的类是 B 而不是 A。最终决定不引入新的关键字，而是使用已经预留的 static 关键字。
+
+```
+<?php
+class A {
+    public static function who() {
+        echo __CLASS__;
+    }
+    public static function test() {
+        static::who(); // 后期静态绑定从这里开始
+    }
+}
+
+class B extends A {
+    public static function who() {
+        echo __CLASS__;
+    }
+}
+
+B::test(); // 输出 B
+?>  
+```
+> Note:
+在非静态环境下，所调用的类即为该对象实例所属的类。由于 **$this-> 会在同一作用范围内尝试调用私有方法**，而 static:: 则可能给出不同结果。另一个区别是 **static:: 只能用于静态属性**。
+```
+<?php
+class A {
+    private function foo() {
+        echo "success!\n";
+    }
+    public function test() {
+        $this->foo();
+        static::foo();
+    }
+}
+
+class B extends A {
+   /* foo() will be copied to B, hence its scope will still be A and
+    * the call be successful */
+}
+
+class C extends A {
+    private function foo() {
+        /* original method is replaced; the scope of the new one is C */
+    }
+}
+
+$b = new B();  
+$b->test();  // 输出 success!  success!
+$c = new C();  
+$c->test();   // // 输出 success!  Fatal error:  Call to private method C::foo() from context 'A' in /tmp/test.php on line 9
+?>
+```
 
